@@ -3,103 +3,91 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace ConsoleApp1
-{
-    class Program
-    {
-        static string[] results = new string[50];
+namespace ConsoleApp1 {
+    class Program {
+        static string joke = "";
         static char key;
-        static Tuple<string, string> names;
-        static ConsolePrinter printer = new ConsolePrinter();
 
-        static void Main(string[] args)
-        {
-            printer.Value("Press ? to get instructions.").ToString();
-            if (Console.ReadLine() == "?")
-            {
-                while (true)
-                {
-                    printer.Value("Press c to get categories").ToString();
-                    printer.Value("Press r to get random jokes").ToString();
-                    GetEnteredKey(Console.ReadKey());
-                    if (key == 'c')
-                    {
-                        getCategories();
-                        PrintResults();
-                    }
-                    if (key == 'r')
-                    {
-                        printer.Value("Want to use a random name? y/n").ToString();
-                        GetEnteredKey(Console.ReadKey());
-                        if (key == 'y')
-                            GetNames();
-                        printer.Value("Want to specify a category? y/n").ToString();
-                        if (key == 'y')
-                        {
-                            printer.Value("How many jokes do you want? (1-9)").ToString();
-                            int n = Int32.Parse(Console.ReadLine());
-                            printer.Value("Enter a category;").ToString();
-                            GetRandomJokes(Console.ReadLine(), n);
-                            PrintResults();
-                        }
-                        else
-                        {
-                            printer.Value("How many jokes do you want? (1-9)").ToString();
-                            int n = Int32.Parse(Console.ReadLine());
-                            GetRandomJokes(null, n);
-                            PrintResults();
-                        }
-                    }
-                    names = null;
+        static ConsolePrinter printer = new ConsolePrinter ();
+
+        static async Task Main (string[] args) {
+            int counter = 0;
+
+            Console.Clear ();
+            printer.Value ("************************************").ToString ();
+            printer.Value ("*  Welcome to the Joke Company!    *").ToString ();
+            printer.Value ("*  Would you like to hear a joke?  *").ToString ();
+            printer.Value ("*  Press y for yes! : )            *").ToString ();
+            printer.Value ("*  Press n for no!  : (            *").ToString ();
+            printer.Value ("************************************").ToString ();
+
+            Boolean yesOrNo = false;
+            Boolean exit = false;
+
+            while (!yesOrNo) {
+                GetEnteredKey (Console.ReadKey ());
+
+                if (key == 'y') {
+                    yesOrNo = true;
+                } else if (key == 'n') {
+                    return;
+                } else {
+                    Console.WriteLine ("Press y for yes, n for no");
                 }
             }
 
+            while (!exit) {
+                // To prevent hitting rate limit on api
+                if (counter == 10) {
+                    printer.Value ("\nThat's enough jokes for you today!").ToString ();
+                    return;
+                }
+
+                Console.Clear ();
+                printer.Value ("********************************************").ToString ();
+                printer.Value ("*  What would you like:                    *").ToString ();
+                printer.Value ("*  Press r for Random Chuck Norris joke    *").ToString ();
+                printer.Value ("*  Press f for a joke with a Fake name     *").ToString ();
+                printer.Value ("*  Press x to exit                         *").ToString ();
+                printer.Value ("********************************************").ToString ();
+
+                GetEnteredKey (Console.ReadKey ());
+
+                if (key == 'r') {
+                    await GetRandomJoke (false);
+                } else if (key == 'f') {
+                    await GetRandomJoke (true);
+                } else if (key == 'x') {
+                    printer.Value ("\nSee ya!!").ToString ();
+                    exit = true;
+                    return;
+                }
+
+                counter++;
+                printer.Value ('\n' + joke).ToString ();
+                printer.Value ("\nPress Any Key to Continue...").ToString ();
+                GetEnteredKey (Console.ReadKey ());
+            }
         }
 
-        private static void PrintResults()
-        {
-            printer.Value("[" + string.Join(",", results) + "]").ToString();
-        }
-
-        private static void GetEnteredKey(ConsoleKeyInfo consoleKeyInfo)
-        {
-            switch (consoleKeyInfo.Key)
-            {
-                case ConsoleKey.C:
-                    key = 'c';
+        private static void GetEnteredKey (ConsoleKeyInfo consoleKeyInfo) {
+            switch (consoleKeyInfo.Key) {
+                case ConsoleKey.F:
+                    key = 'f';
                     break;
-                case ConsoleKey.D0:
-                    key = '0';
-                    break;
-                case ConsoleKey.D1:
-                    key = '1';
-                    break;
-                case ConsoleKey.D3:
-                    key = '3';
-                    break;
-                case ConsoleKey.D4:
-                    key = '4';
-                    break;
-                case ConsoleKey.D5:
-                    key = '5';
-                    break;
-                case ConsoleKey.D6:
-                    key = '6';
-                    break;
-                case ConsoleKey.D7:
-                    key = '7';
-                    break;
-                case ConsoleKey.D8:
-                    key = '8';
-                    break;
-                case ConsoleKey.D9:
-                    key = '9';
+                case ConsoleKey.N:
+                    key = 'n';
                     break;
                 case ConsoleKey.R:
                     key = 'r';
+                    break;
+                case ConsoleKey.X:
+                    key = 'x';
                     break;
                 case ConsoleKey.Y:
                     key = 'y';
@@ -107,23 +95,43 @@ namespace ConsoleApp1
             }
         }
 
-        private static void GetRandomJokes(string category, int number)
-        {
-            new JsonFeed("https://api.chucknorris.io", number);
-            results = JsonFeed.GetRandomJokes(names?.Item1, names?.Item2, category);
+        /// <summary>Retreives a joke from the supplied URL and name replaces when given a true argument</summary>
+        /// <param name="useFakeName">A boolean to determine whether to call GetName()</param>
+        private static async Task GetRandomJoke (Boolean withFakeName = false) {
+            string formattedJoke = await JsonFeed.GetRandomJoke ();
+
+            if (withFakeName) {
+                dynamic response = await GetName ();
+
+                // Replace first and last name separately as some jokes use first and/or last name separately
+                // ex. They don't call him Chuck.... or ... Mr. Norris.
+                string firstName = response["name"];
+                string lastName = response["surname"];
+
+                // Replace does not play nice with direct object property
+                formattedJoke = Regex.Replace (formattedJoke, "(?i)Chuck", firstName);
+                formattedJoke = Regex.Replace (formattedJoke, "(?i)Norris", lastName);
+
+                // Accommodate for female names, and his/her gender designation in the joke
+                if (response["gender"] == "female") {
+                    formattedJoke = formattedJoke.Replace (" He ", " She ");
+                    formattedJoke = formattedJoke.Replace (" he ", " she ");
+                    formattedJoke = formattedJoke.Replace (" His ", " Her ");
+                    formattedJoke = formattedJoke.Replace (" his ", " her ");
+                    formattedJoke = formattedJoke.Replace (" Him ", " Her ");
+                    formattedJoke = formattedJoke.Replace (" him ", " her ");
+                }
+            }
+
+            joke = formattedJoke;
         }
 
-        private static void getCategories()
-        {
-            new JsonFeed("https://api.chucknorris.io", 0);
-            results = JsonFeed.GetCategories();
-        }
-
-        private static void GetNames()
-        {
-            new JsonFeed("http://uinames.com/api/", 0);
-            dynamic result = JsonFeed.Getnames();
-            names = Tuple.Create(result.name.ToString(), result.surname.ToString());
+        /// <summary>
+        /// Async get method to retrieve names from uinames.com
+        /// </summary>
+        /// <returns>A name object</returns>
+        private static async Task<dynamic> GetName () {
+            return await JsonFeed.Getname ();
         }
     }
 }

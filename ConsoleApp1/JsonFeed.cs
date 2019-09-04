@@ -1,69 +1,59 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Net;
 using System.Net.Http;
-using System.Text;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace ConsoleApp1
-{
-    class JsonFeed
-    {
-        static string _url = "";
+namespace ConsoleApp1 {
+	class JsonFeed {
+		/// <summary>Retreive a random joke from the supplied URL</summary>
+		/// <exception cref="System.HttpRequestException">Thrown when the response status code is not 200.</exception>
+		/// <returns>A string containing a chuck norris joke</returns>
+		public static async Task<string> GetRandomJoke () {
+			string url = "https://api.chucknorris.io/jokes/random";
+			using (HttpClient client = new HttpClient ()) {
+				client.BaseAddress = new Uri (url);
+				client.DefaultRequestHeaders.Accept.Add (new MediaTypeWithQualityHeaderValue ("application/json"));
 
-        public JsonFeed() { }
-        public JsonFeed(string endpoint, int results)
-        {
-            _url = endpoint;
-        }
-        
-		public static string[] GetRandomJokes(string firstname, string lastname, string category)
-		{
-			HttpClient client = new HttpClient();
-			client.BaseAddress = new Uri(_url);
-			string url = "jokes/random";
-			if (category != null)
-			{
-				if (url.Contains('?'))
-					url += "&";
-				else url += "?";
-				url += "category=";
-				url += category;
+				try {
+					HttpResponseMessage response = await client.GetAsync (client.BaseAddress);
+					response.EnsureSuccessStatusCode ();
+					string responseBody = await response.Content.ReadAsStringAsync ();
+					var joke = JsonConvert.DeserializeObject<dynamic> (responseBody);
+					return joke["value"];
+				} catch (HttpRequestException e) {
+					Console.WriteLine ("\nException Caught!");
+					Console.WriteLine ("Message :{0} ", e.Message);
+					return "Failed to find a joke! :(";
+				}
 			}
-
-            string joke = Task.FromResult(client.GetStringAsync(url).Result).Result;
-
-            if (firstname != null && lastname != null)
-            {
-                int index = joke.IndexOf("Chuck Norris");
-                string firstPart = joke.Substring(0, index);
-                string secondPart = joke.Substring(0 + index + "Chuck Norris".Length, joke.Length - (index + "Chuck Norris".Length));
-                joke = firstPart + " " + firstname + " " + lastname + secondPart;
-            }
-
-            return new string[] { JsonConvert.DeserializeObject<dynamic>(joke).value };
-        }
-
-        /// <summary>
-        /// returns an object that contains name and surname
-        /// </summary>
-        /// <param name="client2"></param>
-        /// <returns></returns>
-		public static dynamic Getnames()
-		{
-			HttpClient client = new HttpClient();
-			client.BaseAddress = new Uri(_url);
-			var result = client.GetStringAsync("").Result;
-			return JsonConvert.DeserializeObject<dynamic>(result);
 		}
 
-		public static string[] GetCategories()
-		{
-			HttpClient client = new HttpClient();
-			client.BaseAddress = new Uri(_url);
+		/// <summary>
+		/// returns an object that contains name and surname
+		/// </summary>
+		/// <param name="client2"></param>
+		/// <exception cref="System.HttpRequestException">Thrown when the response status code is not 200.</exception>
+		/// <returns>An object containing name, surname, gender and region properties</returns>
+		public static async Task<dynamic> Getname () {
+			string url = "http://uinames.com/api/";
+			using (HttpClient client = new HttpClient ()) {
+				client.BaseAddress = new Uri (url);
+				client.DefaultRequestHeaders.Accept.Add (new MediaTypeWithQualityHeaderValue ("application/json"));
 
-			return new string[] { Task.FromResult(client.GetStringAsync("categories").Result).Result };
+				try {
+					HttpResponseMessage response = await client.GetAsync (client.BaseAddress);
+					response.EnsureSuccessStatusCode ();
+					string responseBody = await response.Content.ReadAsStringAsync ();
+					return JsonConvert.DeserializeObject<dynamic> (responseBody);
+				} catch (HttpRequestException e) {
+					Console.WriteLine ("\nException Caught!");
+					Console.WriteLine (e);
+					Console.WriteLine ("Message :{0} ", e.Message);
+					return new string[0];
+				}
+			}
 		}
-    }
+	}
 }
