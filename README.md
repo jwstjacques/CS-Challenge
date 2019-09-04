@@ -19,6 +19,13 @@ An app that gets random Chuck Norris jokes and can substitute other peoples name
 2. Unit tests on API calls
 3. Ability to add a custom name (trivial, but wasn't clear in spec)
 
+### Built on
+
+2015 Macbook Pro
+Running OSX Mojave 10.14.6
+In VS Studio Code
+Run using dotnet run from the mac terminal, after installing dotnet on os
+
 ### Build status
 
 [![Build status](https://ci.appveyor.com/api/projects/status/lsvryi8ea0n6b4xo?svg=true)](https://ci.appveyor.com/project/fleetcarma/cs-challenge)
